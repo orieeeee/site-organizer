@@ -1,0 +1,49 @@
+{
+  "sites": [
+    {
+      "id": "magicbeangames",
+      "name": "Magic Bean Games",
+      "url": "https://magicbeangames.com",
+      "desc": "매직빈게임즈 공식 홈페이지",
+      "category": "회사",
+      "tags": ["보드게임", "공식", "MBG"],
+      "added": 1730784600
+    },
+    {
+      "id": "github-pages",
+      "name": "GitHub Pages (magicbean-inventory)",
+      "url": "https://orieeeee.github.io/magicbean-inventory/",
+      "desc": "재고 관리 테스트 페이지",
+      "category": "프로젝트",
+      "tags": ["GitHub", "관리", "재고"],
+      "added": 1730700000
+    },
+    {
+      "id": "instagram-mbg",
+      "name": "Instagram @magicbeangames",
+      "url": "https://www.instagram.com/magicbeangames/",
+      "desc": "공식 인스타그램",
+      "category": "SNS",
+      "tags": ["SNS", "Instagram"],
+      "added": 1730084400
+    },
+    {
+      "id": "formspree",
+      "name": "Formspree",
+      "url": "https://formspree.io/",
+      "desc": "프리오더 폼/이메일 엔드포인트",
+      "category": "도구",
+      "tags": ["이메일", "폼", "웹"],
+      "added": 1727696400
+    },
+    {
+      "id": "sheet",
+      "name": "Google Sheets – 보드게임 재고",
+      "url": "https://docs.google.com/",
+      "desc": "재고 시트",
+      "category": "문서",
+      "tags": ["Google", "Sheet", "재고"],
+      "added": 1727760000
+    }
+  ]
+}

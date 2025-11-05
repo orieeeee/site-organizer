@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>사이트 정리 페이지</title>
+  <meta name="description" content="내가 자주 쓰는 사이트들을 한 곳에서 관리하는 링크 허브" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@100..900&display=swap" rel="stylesheet">
+  <style>
+    :root { --radius: 14px; }
+    html { font-family: 'Noto Sans KR', system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; }
+    .card { border-radius: var(--radius); }
+    .tag { border-radius: 9999px; }
+    .shine { position: relative; overflow: hidden; }
+    .shine::after {
+      content: ""; position: absolute; top: -50%; left: -50%;
+      width: 200%; height: 200%; transform: rotate(25deg);
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,.15), transparent);
+      animation: shine 6s linear infinite;
+    }
+    @keyframes shine { from { transform: translateX(-60%) rotate(25deg); } to { transform: translateX(60%) rotate(25deg);} }
+  </style>
+</head>
+<body class="bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100 min-h-screen">
+  <header class="sticky top-0 z-20 bg-white/70 dark:bg-zinc-900/60 backdrop-blur border-b border-zinc-200 dark:border-zinc-800">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+      <h1 class="text-xl font-bold tracking-tight">🔗 사이트 정리</h1>
+      <div class="flex-1"></div>
+      <div class="flex items-center gap-2">
+        <button id="darkToggle" class="px-3 py-1.5 rounded-md border border-zinc-300 dark:border-zinc-700 text-sm">🌙/🌞</button>
+        <a href="./sites.json" class="px-3 py-1.5 rounded-md border border-zinc-300 dark:border-zinc-700 text-sm" target="_blank">sites.json</a>
+        <a href="README.html" class="px-3 py-1.5 rounded-md border border-zinc-300 dark:border-zinc-700 text-sm" target="_blank">사용법</a>
+      </div>
+      <div class="w-full grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <label class="col-span-2 flex items-center gap-2 bg-zinc-100 dark:bg-zinc-800 px-3 py-2 rounded-md">
+          <span>🔎</span>
+          <input id="search" placeholder="검색: 이름, 설명, URL, 태그" class="bg-transparent outline-none w-full" />
+        </label>
+        <div class="grid grid-cols-3 gap-2">
+          <select id="category" class="bg-zinc-100 dark:bg-zinc-800 px-3 py-2 rounded-md">
+            <option value="">전체 카테고리</option>
+          </select>
+          <select id="sort" class="bg-zinc-100 dark:bg-zinc-800 px-3 py-2 rounded-md">
+            <option value="pin">핀 > 이름</option>
+            <option value="name">이름순</option>
+            <option value="date">최근추가순</option>
+          </select>
+          <button id="reset" class="bg-zinc-100 dark:bg-zinc-800 px-3 py-2 rounded-md">초기화</button>
+        </div>
+      </div>
+      <div id="tagBar" class="flex flex-wrap gap-2 mt-1"></div>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 py-6">
+    <div id="grid" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"></div>
+    <p id="empty" class="hidden text-center text-zinc-500 mt-10">검색 결과가 없습니다.</p>
+  </main>
+
+  <template id="cardTpl">
+    <a class="card block border border-zinc-200 dark:border-zinc-800 p-4 hover:border-zinc-300 dark:hover:border-zinc-700 transition bg-white dark:bg-zinc-900">
+      <div class="flex items-start gap-3">
+        <img class="w-8 h-8 rounded" ref="favicon" alt="favicon" />
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-2">
+            <h3 class="font-semibold truncate" ref="name"></h3>
+            <button class="ml-auto text-xl" ref="pinBtn" title="핀 토글">☆</button>
+          </div>
+          <p class="text-xs text-zinc-500 truncate" ref="url"></p>
+        </div>
+      </div>
+      <p class="mt-2 text-sm line-clamp-2" ref="desc"></p>
+      <div class="mt-3 flex flex-wrap gap-1" ref="tags"></div>
+    </a>
+  </template>
+
+  <script>
+    const $ = (sel, el=document) => el.querySelector(sel);
+    const $$ = (sel, el=document) => [...el.querySelectorAll(sel)];
+
+    const state = {
+      all: [],
+      q: '', cat: '', tags: new Set(), sort: 'pin', pins: new Set(JSON.parse(localStorage.getItem('pins')||'[]'))
+    };
+
+    async function loadData() {
+      const res = await fetch('./sites.json?_=' + Date.now());
+      const json = await res.json();
+      state.all = json.sites || [];
+      renderFilters(json.sites);
+      render();
+    }
+
+    function faviconURL(url) {
+      try {
+        const u = new URL(url);
+        return `https://www.google.com/s2/favicons?domain=${u.hostname}&sz=64`;
+      } catch(e) {
+        return 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
+      }
+    }
+
+    function renderFilters(items) {
+      const cats = [...new Set(items.map(i => i.category).filter(Boolean))].sort();
+      const sel = $('#category');
+      cats.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c; opt.textContent = c;
+        sel.appendChild(opt);
+      });
+
+      const tags = new Set();
+      items.forEach(i => (i.tags||[]).forEach(t => tags.add(t)));
+      const tagBar = $('#tagBar');
+      tagBar.innerHTML = '';
+      [...tags].sort().forEach(t => {
+        const btn = document.createElement('button');
+        btn.textContent = `#${t}`;
+        btn.className = 'tag px-3 py-1 text-sm border border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800';
+        btn.addEventListener('click', () => {
+          if (state.tags.has(t)) state.tags.delete(t); else state.tags.add(t);
+          btn.classList.toggle('bg-zinc-900');
+          btn.classList.toggle('text-white');
+          btn.classList.toggle('dark:bg-white');
+          btn.classList.toggle('dark:text-black');
+          render();
+        });
+        tagBar.appendChild(btn);
+      });
+    }
+
+    function matches(item) {
+      const q = state.q.trim().toLowerCase();
+      const inQ = !q || [item.name, item.desc, item.url, (item.tags||[]).join(' ')].join(' ').toLowerCase().includes(q);
+      const inCat = !state.cat || item.category === state.cat;
+      const hasTags = state.tags.size===0 || [...state.tags].every(t => (item.tags||[]).includes(t));
+      return inQ && inCat && hasTags;
+    }
+
+    function render() {
+      const list = state.all.filter(matches);
+      if (state.sort === 'name') list.sort((a,b)=>a.name.localeCompare(b.name,'ko'));
+      else if (state.sort === 'date') list.sort((a,b)=>(b.added||0)-(a.added||0));
+      else if (state.sort === 'pin') list.sort((a,b)=>{
+        const ap = state.pins.has(a.id) ? -1 : 0;
+        const bp = state.pins.has(b.id) ? -1 : 0;
+        if (ap !== bp) return ap - bp;
+        return a.name.localeCompare(b.name,'ko');
+      });
+
+      const grid = $('#grid'); grid.innerHTML = '';
+      const tpl = $('#cardTpl');
+      list.forEach(item => {
+        const node = tpl.content.cloneNode(true);
+        const a = node.querySelector('a'); a.href = item.url; a.target = '_blank';
+        $('[ref=name]', node).textContent = item.name;
+        $('[ref=url]', node).textContent = item.url.replace(/^https?:\/\//,'');
+        $('[ref=desc]', node).textContent = item.desc || '';
+        const img = $('[ref=favicon]', node); img.src = faviconURL(item.url);
+        const tags = $('[ref=tags]', node);
+        (item.tags||[]).forEach(t => {
+          const el = document.createElement('span');
+          el.textContent = t;
+          el.className = 'tag text-xs px-2 py-0.5 border border-zinc-200 dark:border-zinc-700';
+          tags.appendChild(el);
+        });
+        const pinBtn = $('[ref=pinBtn]', node);
+        const pinned = state.pins.has(item.id);
+        pinBtn.textContent = pinned ? '★' : '☆';
+        pinBtn.addEventListener('click', (e)=>{
+          e.preventDefault(); e.stopPropagation();
+          if (state.pins.has(item.id)) state.pins.delete(item.id); else state.pins.add(item.id);
+          localStorage.setItem('pins', JSON.stringify([...state.pins]));
+          render();
+        });
+        grid.appendChild(node);
+      });
+      $('#empty').classList.toggle('hidden', list.length>0);
+    }
+
+    // events
+    $('#search').addEventListener('input', e => { state.q = e.target.value; render(); });
+    $('#category').addEventListener('change', e => { state.cat = e.target.value; render(); });
+    $('#sort').addEventListener('change', e => { state.sort = e.target.value; render(); });
+    $('#reset').addEventListener('click', ()=>{
+      state.q = ''; state.cat = ''; state.tags.clear();
+      $('#search').value=''; $('#category').value=''; $$('#tagBar button').forEach(b=>b.classList.remove('bg-zinc-900','text-white','dark:bg-white','dark:text-black'));
+      render();
+    });
+
+    // dark toggle
+    const prefers = window.matchMedia('(prefers-color-scheme: dark)');
+    function applyTheme() {
+      const v = localStorage.getItem('theme') || (prefers.matches ? 'dark':'light');
+      document.documentElement.classList.toggle('dark', v==='dark');
+    }
+    $('#darkToggle').addEventListener('click', ()=>{
+      const v = document.documentElement.classList.contains('dark') ? 'light' : 'dark';
+      localStorage.setItem('theme', v); applyTheme();
+    });
+    prefers.addEventListener('change', applyTheme);
+    applyTheme();
+
+    loadData();
+  </script>
+</body>
+</html>
